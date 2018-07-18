@@ -1,0 +1,42 @@
+Scenario: Search for a valid return flight
+
+Given:	The customer filled in all the required field with valid data
+When :	he try to click on the search button
+Then : 	he should see all available flights.
+
+
+Scenario: Search for a return flight with invalid data.
+
+Given:	The customer filled in all the required field with invalid data
+When :	he try to click on the search button
+Then : 	he should see the book-a-flight page with error messages.
+
+
+Scenario: Create a new account with valid data
+
+Given: Customer want to create an account at Transavia
+And  : he filled in all required field with valid data
+When : he try to click on the done button
+Then : he should see the confirmation page with info that a mail is sent to his mail account.
+
+
+Scenario: Create a new account with invalid data.
+
+Given: Customer want to create an account at Transavia
+And  : he filled in all required field with invalid data
+When : he try to click on the done button
+Then : he should see the create account page with with error messages on the required fields.
+
+
+Scenario: Log in with valid credentials
+
+Given: customer want to log in into his/her account.
+When : he try to filled in his/her valid credentials 
+Then : he should see his account overview
+
+
+Scenario: Log in with invalid credentials
+
+Given: customer want to log in into his/her account.
+When : he try to filled in his/her valid credentials 
+Then : he should see an error message that the email address and password do not match.
