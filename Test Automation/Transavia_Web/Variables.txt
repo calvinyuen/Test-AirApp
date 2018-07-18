@@ -1,0 +1,4 @@
+*** Variables ***
+${URL}            https://www.transavia.com/en-NL/home/
+${Emailaddress}    ******@gmail.com
+${Password}       *****

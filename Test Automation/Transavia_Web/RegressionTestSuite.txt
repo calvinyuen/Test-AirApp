@@ -1,0 +1,24 @@
+*** Settings ***
+Resource          Libraries.txt
+Resource          StepsDefinitions.txt
+Resource          ObjectRepositories.txt
+Resource          Variables.txt
+
+*** Test Cases ***
+Search for a flight with valid data
+    [Documentation]    This TestCase is to test the flight search engine.
+    Given The customer filled in all the required field with valid data
+    When He try to click on the search button
+    Then He should see all available flights
+
+login with Valid Credentials
+    [Documentation]    This TestCase is to test the login mechanism with valid credentials
+    Given Customer want to log in into his/her account
+    When He try to filled in his/her valid credentials
+    Then He should see his account overview
+
+login with Invalid Credentials
+    [Documentation]    This TestCase is to test the login mechanism with invalid credentials
+    Given Customer want to log in into his/her account
+    When He try to filled in his/her invalid credentials
+    Then He should see an error message that the email address and password do not match

@@ -1,0 +1,254 @@
+import time
+import types
+
+from selenium import webdriver
+
+from SeleniumLibrary.base import keyword, LibraryComponent
+from SeleniumLibrary.locators import WindowManager
+from SeleniumLibrary.utils import (is_truthy, is_noney, secs_to_timestr,
+                                   timestr_to_secs)
+
+from .webdrivertools import WebDriverCreator
+
+class BrowserManagementKeywords(LibraryComponent):
+
+	@keyword
+    def open_browser(self, url, browser='firefox', alias=None,
+                     remote_url=False, desired_capabilities=None,
+                     ff_profile_dir=None):
+        """Opens a new browser instance to the given ``url``.
+
+        The ``browser`` argument specifies which browser to use, and the
+        supported browser are listed in the table below. The browser names
+        are case-insensitive and some browsers have multiple supported names.
+
+        |    = Browser =    |        = Name(s) =       |
+        | Firefox           | firefox, ff              |
+        | Google Chrome     | googlechrome, chrome, gc |
+        | Headless Firefox  | headlessfirefox          |
+        | Headless Chrome   | headlesschrome           |
+        | Internet Explorer | internetexplorer, ie     |
+        | Edge              | edge                     |
+        | Safari            | safari                   |
+        | Opera             | opera                    |
+        | Android           | android                  |
+        | Iphone            | iphone                   |
+        | PhantomJS         | phantomjs                |
+        | HTMLUnit          | htmlunit                 |
+        | HTMLUnit with Javascript | htmlunitwithjs    |
+
+        To be able to actually use one of these browsers, you need to have
+        a matching Selenium browser driver available. See the
+        [https://github.com/robotframework/SeleniumLibrary#browser-drivers|
+        project documentation] for more details. Headless Firefox and
+        Headless Chrome are new additions in SeleniumLibrary 3.1.0
+        and require Selenium 3.8.0 or newer.
+
+        Optional ``alias`` is an alias given for this browser instance and
+        it can be used for switching between browsers. An alternative
+        approach for switching is using an index returned by this keyword.
+        These indices start from 1, are incremented when new browsers are
+        opened, and reset back to 1 when `Close All Browsers` is called.
+        See `Switch Browser` for more information and examples.
+
+        Optional ``remote_url`` is the URL for a
+        [https://github.com/SeleniumHQ/selenium/wiki/Grid2|Selenium Grid].
+
+        Optional ``desired_capabilities`` can be used to configure, for example,
+        logging preferences for a browser or a browser and operating system
+        when using [http://saucelabs.com|Sauce Labs]. Desired capabilities can
+        be given either as a Python dictionary or as a string in format
+        ``key1:value1,key2:value2``.
+        [https://github.com/SeleniumHQ/selenium/wiki/DesiredCapabilities|
+        Selenium documentation] lists possible capabilities that can be
+        enabled.
+
+        Optional ``ff_profile_dir`` is the path to the Firefox profile
+        directory if you wish to overwrite the default profile Selenium
+        uses. Notice that prior to SeleniumLibrary 3.0, the library
+        contained its own profile that was used by default.
+
+        Examples:
+        | `Open Browser` | http://example.com | Chrome  |
+        | `Open Browser` | http://example.com | Firefox | alias=Firefox |
+        | `Open Browser` | http://example.com | Edge    | remote_url=http://127.0.0.1:4444/wd/hub |
+
+        If the provided configuration options are not enough, it is possible
+        to use `Create Webdriver` to customize browser initialization even
+        more.
+
+        Applying ``desired_capabilities`` argument also for local browser is
+        new in SeleniumLibrary 3.1.
+        """
+        if is_truthy(remote_url):
+            self.info("Opening browser '%s' to base url '%s' through "
+                      "remote server at '%s'." % (browser, url, remote_url))
+        else:
+            self.info("Opening browser '%s' to base url '%s'." % (browser, url))
+        driver = self._make_driver(browser, desired_capabilities,
+                                   ff_profile_dir, remote_url)
+        try:
+            driver.get(url)
+        except Exception:
+            self.ctx.register_driver(driver, alias)
+            self.debug("Opened browser with session id %s but failed "
+                       "to open url '%s'." % (driver.session_id, url))
+            raise
+        self.debug('Opened browser with session id %s.' % driver.session_id)
+        return self.ctx.register_driver(driver, alias)
+		
+    @keyword
+    def maximize_browser_window(self):
+        """Maximizes current browser window."""
+        self.driver.maximize_window()
+		
+    @keyword
+    def page_should_contain(self, text, loglevel='INFO'):
+        """Verifies that current page contains ``text``.
+
+        If this keyword fails, it automatically logs the page source
+        using the log level specified with the optional ``loglevel``
+        argument. Valid log levels are ``DEBUG``, ``INFO`` (default),
+        ``WARN``, and ``NONE``. If the log level is ``NONE`` or below
+        the current active log level the source will not be logged.
+        """
+        if not self._page_contains(text):
+            self.ctx.log_source(loglevel)
+            raise AssertionError("Page should have contained text '%s' "
+                                 "but did not." % text)
+        self.info("Current page contains text '%s'." % text)
+
+    @keyword
+    def page_should_contain_element(self, locator, message=None,
+                                    loglevel='INFO', limit=None):
+        """Verifies that element ``locator`` is found on the current page.
+
+        See the `Locating elements` section for details about the locator
+        syntax.
+
+        The ``message`` argument can be used to override the default error
+        message.
+
+        The ``limit`` argument can used to define how many elements the
+        page should contain. When ``limit`` is ``None`` (default) page can
+        contain one or more elements. When limit is a number, page must
+        contain same number of elements.
+
+        See `Page Should Contain` for explanation about the ``loglevel``
+        argument.
+
+        Examples assumes that locator matches to two elements.
+        | `Page Should Contain Element` | div_name | limit=1    | # Keyword fails.                  |
+        | `Page Should Contain Element` | div_name | limit=2    | # Keyword passes.                 |
+        | `Page Should Contain Element` | div_name | limit=none | # None is considered one or more. |
+        | `Page Should Contain Element` | div_name |            | # Same as above.                  |
+
+        The ``limit`` argument is new in SeleniumLibrary 3.0.
+        """
+        if is_noney(limit):
+            return self.assert_page_contains(locator, message=message,
+                                             loglevel=loglevel)
+        limit = int(limit)
+        count = len(self.find_elements(locator))
+        if count == limit:
+            self.info('Current page contains {} element(s).'.format(count))
+        else:
+            if is_noney(message):
+                message = ('Page should have contained "{}" element(s), '
+                           'but it did contain "{}" element(s).'
+                           .format(limit, count))
+            self.ctx.log_source(loglevel)
+            raise AssertionError(message)
+
+    @keyword
+    def click_button(self, locator):
+        """Clicks button identified by ``locator``.
+
+        See the `Locating elements` section for details about the locator
+        syntax. When using the default locator strategy, buttons are
+        searched using ``id``, ``name`` and ``value``.
+        """
+        self.info("Clicking button '%s'." % locator)
+        element = self.find_element(locator, tag='input', required=False)
+        if not element:
+            element = self.find_element(locator, tag='button')
+        element.click()
+		
+   @keyword
+    def page_should_contain_button(self, locator, message=None, loglevel='INFO'):
+        """Verifies button ``locator`` is found from current page.
+
+        See `Page Should Contain Element` for explanation about ``message``
+        and ``loglevel`` arguments.
+
+        See the `Locating elements` section for details about the locator
+        syntax. When using the default locator strategy, buttons are
+        searched using ``id``, ``name`` and ``value``.
+        """
+        try:
+            self.assert_page_contains(locator, 'input', message, loglevel)
+        except AssertionError:
+            self.assert_page_contains(locator, 'button', message, loglevel)
+
+    @keyword
+    def input_text(self, locator, text):
+        """Types the given ``text`` into text field identified by ``locator``.
+
+        Use `Input Password` if you do not want the given ``text`` to be
+        logged.
+
+        See the `Locating elements` section for details about the locator
+        syntax.
+        """
+        self.info("Typing text '%s' into text field '%s'." % (text, locator))
+        self._input_text_into_text_field(locator, text)
+
+    @keyword
+    def capture_page_screenshot(self,
+                                filename='selenium-screenshot-{index}.png'):
+        """Takes screenshot of the current page and embeds it into log file.
+
+        ``filename`` argument specifies the name of the file to write the
+        screenshot into. The directory where screenshots are saved can be
+        set when `importing` the library or by using the `Set Screenshot
+        Directory` keyword. If the directory is not configured, screenshots
+        are saved to the same directory where Robot Framework's log file is
+        written.
+
+        Starting from SeleniumLibrary 1.8, if ``filename`` contains marker
+        ``{index}``, it will be automatically replaced with unique running
+        index preventing files to be overwritten. Indices start from 1,
+        and how they are represented can be customized using Python's
+        [https://docs.python.org/2/library/string.html#formatstrings|
+        format string syntax].
+
+        An absolute path to the created screenshot file is returned.
+
+        Examples:
+        | `Capture Page Screenshot` |                                        |
+        | `File Should Exist`       | ${OUTPUTDIR}/selenium-screenshot-1.png |
+        | ${path} =                 | `Capture Page Screenshot`              |
+        | `File Should Exist`       | ${OUTPUTDIR}/selenium-screenshot-2.png |
+        | `File Should Exist`       | ${path}                                |
+        | `Capture Page Screenshot` | custom_name.png                        |
+        | `File Should Exist`       | ${OUTPUTDIR}/custom_name.png           |
+        | `Capture Page Screenshot` | custom_with_index_{index}.png          |
+        | `File Should Exist`       | ${OUTPUTDIR}/custom_with_index_1.png   |
+        | `Capture Page Screenshot` | formatted_index_{index:03}.png         |
+        | `File Should Exist`       | ${OUTPUTDIR}/formatted_index_001.png   |
+        """
+        if not self.drivers.current:
+            self.info('Cannot capture screenshot because no browser is open.')
+            return
+        path = self._get_screenshot_path(filename)
+        self._create_directory(path)
+        if not self.driver.save_screenshot(path):
+            raise RuntimeError("Failed to save screenshot '{}'.".format(path))
+        # Image is shown on its own row and thus previous row is closed on
+        # purpose. Depending on Robot's log structure is a bit risky.
+        self.info('</td></tr><tr><td colspan="3">'
+                  '<a href="{src}"><img src="{src}" width="800px"></a>'
+                  .format(src=get_link_path(path, self.log_dir)), html=True)
+        return path
+		
+		

@@ -1,0 +1,51 @@
+*** Settings ***
+Resource          Libraries.txt
+Resource          ObjectRepositories.txt
+Resource          Variables.txt
+
+*** Keywords ***
+The customer filled in all the required field with valid data
+    Open Browser    ${URL}    gc
+    Maximize Browser Window
+    Page Should Contain Button    ${btnSearch}
+    Input Text    ${DepartureAirport}    Eindhoven
+    Input Text    ${ArrivalAirport}    Prague
+    Input Text    ${DepartDate}    01-08-2018
+    Input Text    ${ReturnDate}    20-08-2018
+    Click button    ${NumberOfTravelers}
+    Input Text    ${Numberof ADULTS travelers}    2
+
+He try to click on the search button
+    Click button    ${btnSearch}
+
+He should see all available flights
+    Page Should Contain Element    ${OutBoundFlight}
+    Page Should Contain    Outbound flight
+    Page Should Contain    Inbound flight
+    Capture Page Screenshot    Flight Results_1
+
+Customer want to log in into his/her account
+    Open Browser    ${URL}    gc
+    Maximize Browser Window
+    Page Should Contain Button    ${btnSearch}
+    Click button    ${btnLogin}
+
+He try to filled in his/her valid credentials
+    Page Should Contain Button    ${btnLogin}
+    Input Text    ${LoginEmailAddress}    ${Emailaddress}
+    Input Text    ${LoginPassword}    ${Password}
+    Click button    ${btnLogin}
+
+He should see his account overview
+    Page Should Contain    Create your own booking overview
+    Capture Page Screenshot    AccountOverview_1
+
+He try to filled in his/her invalid credentials
+    Page Should Contain Button    ${btnLogin}
+    Input Text    ${LoginEmailAddress}    abc@abc.com
+    Input Text    ${LoginPassword}    12345
+    Click button    ${btnLogin}
+
+He should see an error message that the email address and password do not match
+    Page Should Contain    The e-mail address and password do not match.
+    Capture Page Screenshot    LoginError_1
